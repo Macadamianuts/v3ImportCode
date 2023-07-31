@@ -257,6 +257,7 @@ const mountElementNode = (vnode, container) => {
         mountChildren(children, el);
     }
 
+    // container 添加子元素
     container.appendChild(el);
 
     vnode.el = el;
@@ -270,6 +271,7 @@ const mountChildren = (children, container) => {
     const oldChild = container.childNodes[i];
     const newChild = children[i];
 
+    // shouldPatch 判断是否需要对旧子节点和新子节点进行更新
     if (shouldPatch(oldChild, newChild)) {
       patch(oldChild._vnode, newChild, container);
     } else {
@@ -326,8 +328,8 @@ const mountProps = (props, el) => {
 }
 
 const unmount = vnode => {
-        const { el } = vnode
-        el.parentNode.removeChild(el)
+    const { el } = vnode
+    el.parentNode.removeChild(el)
 }
 
 const unmountChildren = children => {
