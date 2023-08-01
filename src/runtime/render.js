@@ -488,6 +488,44 @@ const mountChildren = (children, container) => {
   }
 };
 
+// 调度定义
+let queue = []
+let isFlushPending = false // 是否有微任务执行
+let currentFlushPromise = null // 正在执行的微任务
+let resolvePromise = Promise.resolve() // 调用微任务
+
+// quenueJob
+const queueJob = job => {
+    // 入队 去重
+    if (!queue.includes(job)) {
+        queue.push(job)
+        quenuFlush()
+    }
+}
+
+// quenuFlush 
+const quenuFlush = () => {
+    if(!isFlushPending) {
+        isFlushPending = true;
+        currentFlushPromise = resolvePromise.then(flushJobs)
+    }
+}
+
+// flushJobs
+const flushJobs = async () => {
+    try {
+        for(const job of queue) {
+           await job()
+        }
+    } finally {
+        // 还原操作
+        isFlushPending = false
+        queue.length = 0
+        currentFlushPromise = null
+    }
+}
+
+
 const mountComponent = (vnode, container) => {
     const { type: Component } = vnode
 
@@ -506,7 +544,9 @@ const mountComponent = (vnode, container) => {
 
     const { setup } = Component
     if(setup) {
-        instance.ctx = setup();
+        // 保存setup返回的响应式对象，确保在组件更新时保持响应式状态
+        instance.setupState = setup();
+        instance.ctx = instance.setupState;
     }
 
     instance.update = effect(() => {
@@ -531,7 +571,10 @@ const mountComponent = (vnode, container) => {
             // 改变 el 
             vnode.el = nextSubTree.el
         }
-    })
+    },
+    // 处理调度函数
+    queueJob
+    )
 }
 
 // inheriyAtrrs 是否存在 atrrs
@@ -638,26 +681,72 @@ const unmountChildren = children => {
 
 
 // test - 组件
-const MyComp = {
-    props: ['className', 'id'], // 添加 'id' 字段到 props 中
+// const MyComp = {
+//     props: ['className', 'id'], // 添加 'id' 字段到 props 中
+//     setup() {
+//         return { 
+//             text: '这是一段文字',
+//             className: '', // 返回 className 字段，并根据需要设置初始值为空字符串
+//             id: '' // 返回 id 字段，并根据需要设置初始值
+//         };
+//     },
+//     render(ctx) {
+//         return h('div', null, [
+//             h('div', { class: ctx.className, id: ctx.id }, ctx.text),
+//         ]);
+//     }
+// }
+
+// render(
+//     h(MyComp, {
+//         className: 'abc',
+//         id: 'div1'
+//     }, null), 
+//     document.body // 将目标容器改为 document.body
+// );
+
+
+// test - 调度器
+// const Comp = {
+//     setup() {
+//         const a = ref(0)
+//         const add = () => {
+//             a.value ++;
+//             a.value ++;
+//         }
+//         return { a, add}
+//     },
+//     render(ctx) {
+//         console.log('update......');
+
+//         return h('div', null, [
+//             h('div', null, ctx.a.value),
+//             h('button', {onClick : ctx.add},'add')
+//         ])
+//     }
+// }
+
+// render(h(Comp),document.body)
+
+const Comp = {
     setup() {
-        return { 
-            text: '这是一段文字',
-            className: '', // 返回 className 字段，并根据需要设置初始值为空字符串
-            id: '' // 返回 id 字段，并根据需要设置初始值
+        const a = ref(0);
+        const add = () => {
+            queueJob(() => {
+                a.value++;
+                a.value++;
+            });
         };
+        return { a, add };
     },
     render(ctx) {
+        console.log('update......');
+
         return h('div', null, [
-            h('div', { class: ctx.className, id: ctx.id }, ctx.text),
+            h('div', null, ctx.a.value),
+            h('button', { onClick: ctx.add }, 'add')
         ]);
     }
-}
+};
 
-render(
-    h(MyComp, {
-        className: 'abc',
-        id: 'div1'
-    }, null), 
-    document.body // 将目标容器改为 document.body
-);
+render(h(Comp), document.body);
