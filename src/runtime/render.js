@@ -649,6 +649,22 @@ const unmountChildren = children => {
     })
 }
 
+// createApp  
+const createApp = rootComponents => {
+    const app = {
+        mount(rootContainer) {
+            if(typeof rootComponents === 'string') {
+                rootContainer = document.querySelector(rootContainer)
+            }
+            render(h(rootComponents), rootContainer)
+        }
+
+        // use 
+
+        // mixin
+    }
+    return app
+}
 
 // test
 // render(
@@ -728,25 +744,23 @@ const unmountChildren = children => {
 
 // render(h(Comp),document.body)
 
-const Comp = {
+
+// test createApp
+createApp({
     setup() {
-        const a = ref(0);
+        const count = ref(0)
         const add = () => {
-            queueJob(() => {
-                a.value++;
-                a.value++;
-            });
-        };
-        return { a, add };
+            count.value ++;
+        }
+        return {
+            add,
+            count
+        }
     },
     render(ctx) {
-        console.log('update......');
-
         return h('div', null, [
-            h('div', null, ctx.a.value),
-            h('button', { onClick: ctx.add }, 'add')
-        ]);
+            h('div', { id: 'div1'}, ctx.count.value),
+            h('button', { onClick: ctx.add , id: 'btn'}, 'add')
+        ])
     }
-};
-
-render(h(Comp), document.body);
+}).mount(document.body)
