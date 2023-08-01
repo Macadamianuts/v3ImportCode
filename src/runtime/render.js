@@ -136,7 +136,6 @@ const patchChildren = (oldNode, newNode, container) => {
             } else {
                 patchArrayChildren(prevChildren, nextChildren, container)
             }
-            // patchArrayChildren(prevChildren, nextChildren, container)
         } else {
             unmountChildren(nextChildren, container)
         }
@@ -145,7 +144,7 @@ const patchChildren = (oldNode, newNode, container) => {
 
 // patchKeyChildren 处理 diff 算法
 const patchKeyChildren = (oldChild, newChild, container) => {
-    // 预处理 头指针、尾指针
+    // 预处理: 头指针、尾指针
     // 头指针
     let i = 0;
     // 尾指针
@@ -168,12 +167,13 @@ const patchKeyChildren = (oldChild, newChild, container) => {
 
     // 两种情况： 
     // 情况 1：i > e1 & i <= e2 ==> i 和 e2 中间不服就是需要挂在到新节点;
-    // 情况 2：i < e2 & i <= e1 ==> i 与 e1 中间部分需要卸载的旧节点；
     if (i > e1 & i <= e2) {
         for(let j = i; j<= e2; j++) { // 过程持续
             patch(null, newChild[j],container)
         }
-    } else if (i < e2 & i <= e1) {
+    }
+    // 情况 2：i < e2 & i <= e1 ==> i 与 e1 中间部分需要卸载的旧节点；
+    else if (i < e2 & i <= e1) {
         for(let j = i; j<= e2; j++) { // 过程持续
             unmount(oldChild[j])
         } 
