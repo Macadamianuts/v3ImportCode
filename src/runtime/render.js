@@ -1,6 +1,7 @@
 // 导入 reactive 动态更新组件值
 import { reactive  } from "../reactivity/reactive.js";
 import { effect } from "../reactivity/effect.js";
+import { ref } from '../reactivity/ref.js'
 
 const SHAPEFLAG = {
     ELEMENT : 1,
@@ -524,11 +525,11 @@ const mountComponent = (vnode, container) => {
             const prevSubTree = instance.subTree
             const nextSubTree = (instance.subTree = Component.render(instance.ctx))
 
-            inheriyAtrrs(instance, subTree)
+            inheriyAtrrs(instance, nextSubTree)
 
             patch(prevSubTree, nextSubTree, container)
             // 改变 el 
-            vnode.el = subTree.el
+            vnode.el = nextSubTree.el
         }
     })
 }
