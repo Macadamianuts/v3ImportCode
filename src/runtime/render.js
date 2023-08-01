@@ -1,11 +1,16 @@
+// 导入 reactive 动态更新组件值
+import { reactive  } from "../reactivity/reactive.js";
+import { effect } from "../reactivity/effect.js";
+
 const SHAPEFLAG = {
     ELEMENT : 1,
     TEXT: 1 << 1,
     TEXT_CHILDREN: 1 << 2,
     ARRAY_CHILDREN: 1 << 3,
-    COMPONENT: 1 << 4
+    COMPONENT: 1 << 4,
 }
 
+const Text = Symbol('Text')
 
 // 创建 vnode
 const h = (type, props, children) => {
@@ -91,6 +96,21 @@ const patch = (oldNode, newNode, container) => {
         processTextNode(oldNode, newNode, container)
     } else if(shapeFlag & SHAPEFLAG.ELEMENT) {
         processElement(oldNode, newNode, container)
+    } else if(shapeFlag & SHAPEFLAG.COMPONENT) {
+        console.log("----test----");
+        // 组件挂载
+        processComponent(oldNode, newNode, container)
+    }
+}
+
+// processComponent 组件挂载
+const processComponent = (oldNode, newNode, container) => {
+    if(oldNode) {
+        // 组件更新
+        updateComponent()
+    } else {
+        // 组件挂载
+        mountComponent(newNode, container)
     }
 }
 
@@ -237,6 +257,7 @@ const patchKeyChildren = (oldChild, newChild, container) => {
             }else if(moved) {
                 if(j < 0 || i !== seq[j]) {
                     // 移动函数
+                   move(container, oldChild[i + s2].el, oldChild[newIndexToOldIndexMap[i]].el);
                 } else {
                     j--
                 }
@@ -319,6 +340,10 @@ const patchProps = (oldProps, newProps, el) => {
         return
     }
 
+     if (!el) {
+        return; // 处理 el 为 null 或 undefined 的情况
+    }
+
     for(const key in oldProps) {
         if(newProps[key] == null) {
             patchDomProps(oldProps[key] , null , key , el)
@@ -337,6 +362,9 @@ const patchProps = (oldProps, newProps, el) => {
 
 // patchDomProps 判断方法
 const patchDomProps = (prev , next , key , el) => {
+    if (!el) {
+        return; // 处理 el 为 null 或 undefined 的情况
+    }
     switch(key) {
         case 'class':
             el.className = next || '';
@@ -388,7 +416,7 @@ const mount = (vnode, container) => {
         // 实现元素节点挂在方法
         mountElementNode(vnode, container)
     } else if( shapeFlag & SHAPEFLAG.COMPONENT) {
-        mountComponentNode(vnode, container)
+        mountComponent(vnode, container)
     }
 }
 
@@ -459,9 +487,82 @@ const mountChildren = (children, container) => {
   }
 };
 
-const mountComponentNode = (vnode, container) => {
+const mountComponent = (vnode, container) => {
+    const { type: Component } = vnode
 
+    const instance = {
+        props: null,
+        atrrs: null,
+        setupState: null,
+        ctx: null,
+        subTree: null,
+        update: null,
+        isMounted: false
+    }
+
+    // 初始化 props
+    initProps(instance, vnode)
+
+    const { setup } = Component
+    if(setup) {
+        instance.ctx = setup();
+    }
+
+    instance.update = effect(() => {
+        if(!instance.isMounted) {
+            const subTree = (instance.subTree = Component.render(instance.ctx))
+            
+            // vnode的 props 与 instance 的 props 是不是一致
+            inheriyAtrrs(instance, subTree)
+
+            patch(null, subTree, container)
+
+            vnode.el = subTree.el
+
+            instance.isMounted = true;
+        } else {
+            const prevSubTree = instance.subTree
+            const nextSubTree = (instance.subTree = Component.render(instance.ctx))
+
+            inheriyAtrrs(instance, subTree)
+
+            patch(prevSubTree, nextSubTree, container)
+            // 改变 el 
+            vnode.el = subTree.el
+        }
+    })
 }
+
+// inheriyAtrrs 是否存在 atrrs
+const inheriyAtrrs = (instance, subTree) => {
+    const { atrrs } = instance
+    const { props } = subTree
+    if(atrrs) {
+        subTree.props = {
+            ...props,
+            ...atrrs
+        }
+    }
+}
+
+// initProps
+const initProps = (instance, vnode) => {
+    const { type: Component , props: vnodeProps } = vnode
+
+    const props = (instance.props = {})
+    const atrrs = (instance.atrrs = {}) 
+
+    for(const key in vnodeProps) {
+        if(Component.props && Component.props.includes(key)) {
+            props[key] = vnodeProps[key]
+        } else {
+            atrrs[key] = vnodeProps[key] 
+        }
+    }
+    instance.props = reactive(instance.props)
+};
+
+
 
 // mountProps
 const mountProps = (props, el) => {
@@ -506,30 +607,56 @@ const unmountChildren = children => {
 
 
 // test
+// render(
+//     h('ul', null, [
+//         h('li',null, '我是 first'),
+//         h('li',null, [
+//             h('li',null, '我是 second的 1'),
+//             h('li',null, '我是 second的 2'),
+//             h('li',null, '我是 second的 3')
+//         ]),
+//         h('li',null, '我是 third')
+//     ]),
+//     document.body // 将目标容器改为 document.body
+// );
+
+// setTimeout(() => {
+//     render(
+//         h('ul', null, [
+//             h('li',null, 'first'),
+//             h('li',null, [
+//                 h('li',null, '我是 second的 first'),
+//                 h('li',null, '我是 second的 second'),
+//                 h('li',null, '我是 second的 three')
+//             ]),
+//             h('li',null, 'three')
+//         ]),
+//         document.body
+//     );
+// }, 3000); // 等待一段时间再执行第二个 render 函数
+
+
+// test - 组件
+const MyComp = {
+    props: ['className', 'id'], // 添加 'id' 字段到 props 中
+    setup() {
+        return { 
+            text: '这是一段文字',
+            className: '', // 返回 className 字段，并根据需要设置初始值为空字符串
+            id: '' // 返回 id 字段，并根据需要设置初始值
+        };
+    },
+    render(ctx) {
+        return h('div', null, [
+            h('div', { class: ctx.className, id: ctx.id }, ctx.text),
+        ]);
+    }
+}
+
 render(
-    h('ul', null, [
-        h('li',null, '我是 first'),
-        h('li',null, [
-            h('li',null, '我是 second的 1'),
-            h('li',null, '我是 second的 2'),
-            h('li',null, '我是 second的 3')
-        ]),
-        h('li',null, '我是 third')
-    ]),
+    h(MyComp, {
+        className: 'abc',
+        id: 'div1'
+    }, null), 
     document.body // 将目标容器改为 document.body
 );
-
-setTimeout(() => {
-    render(
-        h('ul', null, [
-            h('li',null, 'first'),
-            h('li',null, [
-                h('li',null, '我是 second的 first'),
-                h('li',null, '我是 second的 second'),
-                h('li',null, '我是 second的 three')
-            ]),
-            h('li',null, 'three')
-        ]),
-        document.body
-    );
-}, 3000); // 等待一段时间再执行第二个 render 函数
