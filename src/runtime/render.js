@@ -56,7 +56,7 @@ const render = (vnode, container) => {
         container._vnode = vnode;  // 更新当前 vnode
     } else {
         prevNode && unmount(prevNode);
-        container._vnode = null;
+        container._vnode = null; 
     }
 }
 
@@ -110,7 +110,7 @@ const patchElementNode = (oldNode, newNode) => {
 }
 
 
-// 处理子节点
+// patchChildren 处理子节点
 const patchChildren = (oldNode, newNode, container) => {
     const { shapeFlag: prevShapeFlag, children: prevChildren } = oldNode
     const { shapeFlag: nextShapeFlag, children: nextChildren } = newNode
@@ -129,13 +129,173 @@ const patchChildren = (oldNode, newNode, container) => {
             unmountChildren(prevChildren)
             container.textContent = nextChildren
         } else if(nextShapeFlag & SHAPEFLAG.ARRAY_CHILDREN) {
-            patchArrayChildren(prevChildren, nextChildren, container)
+            // diff
+            // 假设第一个元素有 key 则都有 key
+            if (prevChildren.length > 0 && prevChildren[0].key && nextChildren[0].key) {
+                patchKeyChildren(oldNode, newNode, container);
+            } else {
+                patchArrayChildren(prevChildren, nextChildren, container)
+            }
+            // patchArrayChildren(prevChildren, nextChildren, container)
         } else {
             unmountChildren(nextChildren, container)
         }
     }
 }
 
+// patchKeyChildren 处理 diff 算法
+const patchKeyChildren = (oldChild, newChild, container) => {
+    // 预处理 头指针、尾指针
+    // 头指针
+    let i = 0;
+    // 尾指针
+    let e1 = oldChild.length - 1
+    let e2 = newChild.length - 1
+
+    // 预处理 
+    // 头指针移动
+    while(i <= e1 && i<= e2 && oldChild[i].key === newChild[i].key) { // 还需要比较两者的 key 是否相等再进行移动
+         patch(oldChild[i], newChild[i], container);
+         i++
+    }
+
+    // 尾指针
+    while(i <= e1 && i<= e2 && oldChild[e1].key === newChild[e2].key) {
+         patch(oldChild[e1], newChild[e2], container);
+         e1 --;
+         e3 --;
+    }
+
+    // 两种情况： 
+    // 情况 1：i > e1 & i <= e2 ==> i 和 e2 中间不服就是需要挂在到新节点;
+    // 情况 2：i < e2 & i <= e1 ==> i 与 e1 中间部分需要卸载的旧节点；
+    if (i > e1 & i <= e2) {
+        for(let j = i; j<= e2; j++) { // 过程持续
+            patch(null, newChild[j],container)
+        }
+    } else if (i < e2 & i <= e1) {
+        for(let j = i; j<= e2; j++) { // 过程持续
+            unmount(oldChild[j])
+        } 
+    } else {
+        // diff 关键部分
+        const s1 = i
+        const s2 = i
+
+        // 1. 初始化 keyToNewIndexMap
+        const keyToNewIndexMap = new Map()
+
+        for(let i = se; i <= e2; i++) {
+           keyToNewIndexMap.set(newChild[i].key, i) 
+        }
+
+        let patched = 0 // 当前已经配置了多少个节点
+        let moved = false // 是否需要移动位置
+        let maxNewIndex = 0 // 判断是否是上升趋势
+        /*
+            a ( b c d ) e
+            a ( c d b ) e
+        */
+        let toPatched = e2 - s2 + 1 // 需要被 patch 的节点数量
+
+        const newIndexToOldIndexMap = new Array(toPatched).fill(-1)
+
+        for(let i = s1; i<= e1; i++) {
+            const prevChild = oldChild[i]
+            // 做一个判断去做卸载
+            if(patched > toPatched) {
+                unmount(prevChild)
+                continue
+            }
+            // 2. 根据 keyToNewIndexMap 获取 newIndex
+            let newIndex = keyToNewIndexMap.get(prevChild.key)
+
+            if(newIndex === undefined) {
+                unmount(prevChild)
+            } else {
+            // 3. 根据 newIndex 更新 newIndexToOldIndexMap
+                newIndexToOldIndexMap[newIndex - s2] = i
+
+                // 判断是否上升趋势
+                if(newIndex >= maxNewIndex) {
+                    maxNewIndex = newIndex
+                } else {
+                    moved = true
+                }
+                patch(prevChild, newChild[newIndex], container)
+                patched ++;
+            }
+        }
+        
+        // 移动
+        const seq = getSequence(newIndexToOldIndexMap)
+        let j = seq.length -1;
+        // 具体索引需要移动的位置
+        for(let i = newIndexToOldIndexMap.length - 1; i >= 0; i--) {
+            if(newIndexToOldIndexMap[i] === -1) {
+                patch(null,oldChild[i + s2] ,container)
+            }else if(moved) {
+                if(j < 0 || i !== seq[j]) {
+                    // 移动函数
+                } else {
+                    j--
+                }
+            }
+        }
+
+    }
+}
+
+// move 移动函数
+const move = (container, el, target) => {
+  if (el.nextSibling === target) {
+    return;
+  }
+  if (target.nextSibling === el) {
+    container.insertBefore(el, target);
+  } else {
+    container.insertBefore(el, target.nextSibling);
+  }
+};
+
+// getSequence 获取最优位置
+const getSequence = nums => {
+    const response = [nums[0]]
+    const pops = [0]
+
+    // 保存最优解
+    for(let i = 1; i < nums.length; i++) {
+        if(nums[i] === -1) {
+            pops.push(-1)
+            continue
+        }
+
+        if(nums[i] > response[response.length - 1]) {
+            response.push(nums[i])
+            pops.push(response.length - 1)
+        } else {
+            for(let j = 0; j < response.length; j++) {
+                if(response[j] > nums[i]) {
+                    response[j] = nums[i];
+                    pops.push(j)
+                    break;
+                }
+            }
+        }
+    }
+    let cur = response.length - 1;
+    for(let i = pops.length -1; i >= 0 && cur >= 0;i--) {
+        if(pops[i] === -1) {
+            continue
+        } else if(pops[i] == cur){
+            response[cur] = i;
+            cur --;
+        }
+    }
+    return response
+}
+
+// patchArrayChildren 处理数组子节点
 const patchArrayChildren = (prev, next, container) => {
     const oldLength = prev.length
     const newLength = next.length
@@ -153,6 +313,7 @@ const patchArrayChildren = (prev, next, container) => {
 }
 
 
+// patchProps 
 const patchProps = (oldProps, newProps, el) => {
     if(oldProps === newProps) {
         return
@@ -217,7 +378,7 @@ const patchDomProps = (prev , next , key , el) => {
     }
 }
 
-
+// mount
 const mount = (vnode, container) => {
     const { shapeFlag } = vnode;
     if(shapeFlag & SHAPEFLAG.TEXT) {
@@ -231,6 +392,7 @@ const mount = (vnode, container) => {
     }
 }
 
+// mountTextNode 
 const mountTextNode = (vnode, container) => {
     const textNode = document.createTextNode(vnode.children)
     container.appendChild(textNode)
@@ -238,6 +400,7 @@ const mountTextNode = (vnode, container) => {
     vnode.el = textNode
 }
 
+// mountElementNode
 const mountElementNode = (vnode, container) => {
     const {
         type,
@@ -263,7 +426,7 @@ const mountElementNode = (vnode, container) => {
     vnode.el = el;
 };
 
-
+// mountChildren
 const mountChildren = (children, container) => {
   const commonLength = Math.min(children.length, container.childNodes.length);
 
@@ -300,6 +463,7 @@ const mountComponentNode = (vnode, container) => {
 
 }
 
+// mountProps
 const mountProps = (props, el) => {
     for(const key in props) {
         const value = props[key]
@@ -327,11 +491,13 @@ const mountProps = (props, el) => {
     }
 }
 
+// unmount
 const unmount = vnode => {
     const { el } = vnode
     el.parentNode.removeChild(el)
 }
 
+// unmountChildren
 const unmountChildren = children => {
     children.forEach(child => {
         unmount(child)
