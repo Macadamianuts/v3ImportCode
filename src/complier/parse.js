@@ -46,6 +46,8 @@ const parseChildren = (context) => {
       node = parseInterpolation(context);
     } else if (s[0] === '<') {
       node = parseElement(context);
+    } else if(startsWith(s, "{{")) {
+        node = parseInterpolation(context)
     } else {
       node = parseText(context);
     }
