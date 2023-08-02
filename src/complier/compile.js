@@ -337,3 +337,25 @@ const stringifyDynamicPropNames = (props) => {
   }
   return propsNamesString + ']';
 }
+
+
+export const baseCompile = (template, options = {}) => {
+  const ast = isString(template) ? baseParse(template, options) : template;
+
+  const [nodeTransforms, directiveTransforms] = getBaseTransformPreset();
+
+  // 这里的 extend 实际上就是 Object.assign()
+  transform(
+    ast,
+    extend({}, options, {
+      nodeTransforms: [...nodeTransforms, ...(options.nodeTransforms || [])],
+      directiveTransforms: extend(
+        {},
+        directiveTransforms,
+        options.directiveTransforms || {} // user transforms
+      )
+    })
+  );
+
+  return generate(ast, extend({}, options));
+}

@@ -2,7 +2,7 @@ import { ShapeFlags } from '../shared';
 import { patchProps } from './patchProps';
 import { mountComponent } from './component';
 
-export const render = (vnode, container) => {
+export function render(vnode, container) {
   const prevVNode = container._vnode;
 
   if (!vnode) {
@@ -16,21 +16,18 @@ export const render = (vnode, container) => {
   container._vnode = vnode;
 }
 
-const unmount = (vnode) => {
+function unmount(vnode) {
   const { shapeFlag, el } = vnode;
 
   if (shapeFlag & ShapeFlags.COMPONENT) {
     unmountComponent(vnode);
-  } else if (shapeFlag & ShapeFlags.FRAGMENT) {
-    unmountFragment(vnode);
   } else {
     el.parentNode.removeChild(el);
   }
 }
 
-export const patch = (oldNode, newNode, container, anchor) => {
+export function patch(oldNode, newNode, container) {
   if (oldNode && !isSameVNode(oldNode, newNode)) {
-    anchor = (oldNode.anchor || oldNode.el).nextSibling;
     unmount(oldNode);
     oldNode = null;
   }
@@ -38,103 +35,66 @@ export const patch = (oldNode, newNode, container, anchor) => {
   const { shapeFlag } = newNode;
 
   if (shapeFlag & ShapeFlags.COMPONENT) {
-    processComponent(oldNode, newNode, container, anchor);
+    processComponent(oldNode, newNode, container);
   } else if (shapeFlag & ShapeFlags.TEXT) {
-    processText(oldNode, newNode, container, anchor);
-  } else if (shapeFlag & ShapeFlags.FRAGMENT) {
-    processFragment(oldNode, newNode, container, anchor);
+    processText(oldNode, newNode, container);
   } else {
-    processElement(oldNode, newNode, container, anchor);
+    processElement(oldNode, newNode, container);
   }
 }
 
-const unmountComponent = (vnode) => {
-  // 还要处理生命周期之类的 省略了...
+function unmountComponent(vnode) {
+  // 源码里没这么简单
+  // 还要处理生命周期之类的
+  // 但我偷懒了 :)
   unmount(vnode.component.subTree);
 }
 
-const processComponent = (oldNode, newNode, container, anchor) => {
+const processComponent = (oldNode, newNode, container) => {
   if (oldNode) {
     // 组件被动更新
     // 源码中有 shouldUpdateComponent 判断是否该更新组件
     // 这里偷懒了, 每次都更新
     updateComponent(oldNode, newNode);
   } else {
-    mountComponent(newNode, container, anchor);
+    mountComponent(newNode, container);
   }
 }
 
-const updateComponent = (oldNode, newNode) => {
+function updateComponent(oldNode, newNode) {
   newNode.component = oldNode.component;
   newNode.component.next = newNode;
   newNode.component.update();
-}
-
-const unmountFragment = (vnode) => {
-  let { el: cur, anchor: end } = vnode;
-  const { parentNode } = cur;
-
-  while (cur !== end) {
-    let next = cur.nextSibling;
-    parentNode.removeChild(cur);
-    cur = next;
-  }
-
-  parentNode.removeChild(end);
 }
 
 const isSameVNode = (oldNode, newNode) => {
   return oldNode.type === newNode.type;
 }
 
-const processText = (oldNode, newNode, container, anchor) => {
+function processText(oldNode, newNode, container) {
   if (oldNode) {
     newNode.el = oldNode.el;
     oldNode.el.textContent = newNode.children;
   } else {
-    mountTextNode(newNode, container, anchor);
+    mountTextNode(newNode, container);
   }
 }
 
-const processFragment = (oldNode, newNode, container, anchor) => {
-  // 没办法通过 el 获取到 Fragment 节点，因为会直接渲染成其子节点
-  // 因此需要新增一个节点模拟 Fragment 节点
-  // 在 Fragment 中插入两个空的文本节点
-  // 前一个作为 el
-  // 后一个作为 anchor
-  // 以此来限定 Fragment 节点插入的位置
-
-  newNode.el = oldNode ? oldNode.el : document.createTextNode('');
-  newNode.anchor = oldNode ? oldNode.anchor : document.createTextNode('');
-
-  const fragmentStarAnchor = newNode.el;
-  const fragmentEndAnchor = newNode.anchor;
-
+function processElement(oldNode, newNode, container) {
   if (oldNode) {
-    patchChildren(oldNode, newNode, container, fragmentEndAnchor);
+    patchElement(oldNode, newNode);
   } else {
-    container.insertBefore(fragmentStarAnchor, anchor);
-    container.insertBefore(fragmentEndAnchor, anchor);
-
-    mountChildren(newNode.children, container, fragmentEndAnchor);
+    mountElement(newNode, container);
   }
 }
 
-const processElement = (oldNode, newNode, container, anchor) => {
-  if (oldNode) {
-    patchElement(oldNode, newNode, anchor);
-  } else {
-    mountElement(newNode, container, anchor);
-  }
-}
-
-function mountTextNode(vnode, container, anchor) {
+function mountTextNode(vnode, container) {
   const textNode = document.createTextNode(vnode.children);
-  container.insertBefore(textNode, anchor);
+  container.appendChild(textNode);
   vnode.el = textNode;
 }
 
-const mountElement = (vnode, container, anchor) => {
+function mountElement(vnode, container) {
   const { type, props, children, shapeFlag } = vnode;
 
   const el = document.createElement(type);
@@ -142,104 +102,105 @@ const mountElement = (vnode, container, anchor) => {
   if (shapeFlag & ShapeFlags.TEXT_CHILDREN) {
     mountTextNode(vnode, el);
   } else if (shapeFlag & ShapeFlags.ARRAY_CHILDREN) {
-    mountChildren(children, el, anchor);
+    mountChildren(children, el);
   }
 
-  container.insertBefore(el, anchor);
+  container.appendChild(el);
 
   vnode.el = el;
 }
 
-const mountChildren = (children, container, anchor) => {
+function mountChildren(children, container) {
   for (const child of children) {
-    patch(null, child, container, anchor);
+    patch(null, child, container);
   }
 }
 
-const patchElement = (oldNode, newNode, anchor) => {
+function patchElement(oldNode, newNode) {
   newNode.el = oldNode.el;
   patchProps(oldNode.props, newNode.props, newNode.el);
-  patchChildren(oldNode, newNode, newNode.el, anchor);
+  patchChildren(oldNode, newNode, newNode.el);
 }
 
-const patchChildren = (oldNode, newNode, container, anchor) => {
-  const { shapeFlag: prevShapeFlag, children: oldChild } = oldNode;
-  const { shapeFlag: nextShapeFlag, children: newChild } = newNode;
+function patchChildren(oldNode, newNode, container) {
+  const { shapeFlag: prevShapeFlag, children: c1 } = oldNode;
+  const { shapeFlag: nextShapeFlag, children: c2 } = newNode;
 
   // 9 种情况
   // 未进行合并
   if (prevShapeFlag & ShapeFlags.TEXT_CHILDREN) {
     if (nextShapeFlag & ShapeFlags.TEXT_CHILDREN) {
-      container.textContent = newChild;
+      container.textContent = c2;
     } else if (nextShapeFlag & ShapeFlags.ARRAY_CHILDREN) {
       container.textContent = '';
-      mountChildren(newChild, container, anchor);
+      mountChildren(c2, container);
     } else {
       container.textContent = '';
     }
   } else if (prevShapeFlag & ShapeFlags.ARRAY_CHILDREN) {
     if (nextShapeFlag & ShapeFlags.TEXT_CHILDREN) {
-      unmountChildren(oldChild);
-      container.textContent = newChild;
+      unmountChildren(c1);
+      container.textContent = c2;
     } else if (nextShapeFlag & ShapeFlags.ARRAY_CHILDREN) {
-      if (oldChild[0] && oldChild[0].key != null && newChild[0] && newChild[0].key != null) {
-        patchKeyedChildren(oldChild, newChild, container, anchor);
+      if (c1[0] && c1[0].key != null && c2[0] && c2[0].key != null) {
+        patchKeyedChildren(c1, c2, container);
       } else {
-        patchUnkeyedChildren(oldChild, newChild, container, anchor);
+        patchUnkeyedChildren(c1, c2, container);
       }
     } else {
-      unmountChildren(oldChild);
+      unmountChildren(c1);
     }
   } else {
     if (nextShapeFlag & ShapeFlags.TEXT_CHILDREN) {
-      container.textContent = newChild;
+      container.textContent = c2;
     } else if (nextShapeFlag & ShapeFlags.ARRAY_CHILDREN) {
-      mountChildren(newChild, container, anchor);
+      mountChildren(c2, container);
     }
   }
 }
 
-const unmountChildren = (children) => {
+function unmountChildren(children) {
   children.forEach((child) => {
     unmount(child);
   });
 }
 
-const patchUnkeyedChildren = (oldChild, newChild, container, anchor) => {
-  const oldLength = oldChild.length;
-  const newLength = newChild.length;
+function patchUnkeyedChildren(c1, c2, container) {
+  const oldLength = c1.length;
+  const newLength = c2.length;
   const commonLength = Math.min(oldLength, newLength);
 
   // 处理公共部分
   for (let i = 0; i < commonLength; i++) {
-    patch(oldChild[i], newChild[i], container, anchor);
+    patch(c1[i], c2[i], container);
   }
 
-  // 如果新长度短于老长度 将多余部分卸载
+  // 如果新长度短于老长度
+  // 将多余部分卸载
   if (oldLength > newLength) {
-    unmountChildren(oldChild.slice(commonLength));
+    unmountChildren(c1.slice(commonLength));
   }
   // 如果新长度长于老长度
   // 挂载多出部分
   else if (oldLength < newLength) {
-    mountChildren(newChild.slice(commonLength), container, anchor);
+    mountChildren(c2.slice(commonLength), container);
   }
 }
 
-function patchKeyedChildren(oldChild, newChild, container, anchor) {
+function patchKeyedChildren(c1, c2, container) {
   let i = 0;
-  let e1 = oldChild.length - 1;
-  let e2 = newChild.length - 1;
+  let e1 = c1.length - 1;
+  let e2 = c2.length - 1;
 
   // --------------------- 预处理 ---------------------
 
-  while (i <= e1 && i <= e2 && oldChild[i].key === newChild[i].key) {
-    patch(oldChild[i], newChild[i], container);
+  while (i <= e1 && i <= e2 && c1[i].key === c2[i].key) {
+    patch(c1[i], c2[i], container);
     i++;
   }
 
-  while (i <= e1 && i <= e2 && oldChild[e1].key === newChild[e2].key) {
-    patch(oldChild[e1], newChild[e2], container);
+  while (i <= e1 && i <= e2 && c1[e1].key === c2[e2].key) {
+    patch(c1[e1], c2[e2], container);
     e1--;
     e2--;
   }
@@ -250,12 +211,10 @@ function patchKeyedChildren(oldChild, newChild, container, anchor) {
   // a d b c
   if (i > e1 && i <= e2) {
     for (let j = i; j <= e2; j++) {
-      const nextPos = e2 + 1;
-      // 如果 newChild[nextPos] 存在则将该节点作为 anchor
+      // 如果 c2[nextPos] 存在则将该节点作为 anchor
       // 否则用传入的 anchor
-      const curAnchor = (newChild[nextPos] && newChild[nextPos].el) || anchor;
 
-      patch(null, newChild[j], container, curAnchor);
+      patch(null, c2[j], container);
     }
   }
 
@@ -263,7 +222,7 @@ function patchKeyedChildren(oldChild, newChild, container, anchor) {
   // a c
   else if (i > e2 && i <= e1) {
     for (let j = i; j <= e1; j++) {
-      unmount(oldChild[j]);
+      unmount(c1[j]);
     }
   }
 
@@ -276,7 +235,7 @@ function patchKeyedChildren(oldChild, newChild, container, anchor) {
     // 保存 key 到新节点索引的映射关系
     const keyToNewIndexMap = new Map();
     for (let i = s2; i <= e2; i++) {
-      const nextChild = newChild[i];
+      const nextChild = c2[i];
       if (nextChild.key != null) {
         keyToNewIndexMap.set(nextChild.key, i);
       }
@@ -293,7 +252,7 @@ function patchKeyedChildren(oldChild, newChild, container, anchor) {
     const newIndexToOldIndexMap = new Array(toBePatched).fill(-1);
 
     for (let i = s1; i <= e1; i++) {
-      const prevChild = oldChild[i];
+      const prevChild = c1[i];
       if (patched >= toBePatched) {
         unmount(prevChild);
         continue;
@@ -331,7 +290,7 @@ function patchKeyedChildren(oldChild, newChild, container, anchor) {
           move = true;
         }
 
-        patch(prevChild, newChild[newIndex], container);
+        patch(prevChild, c2[newIndex], container);
 
         patched++;
       }
@@ -348,20 +307,18 @@ function patchKeyedChildren(oldChild, newChild, container, anchor) {
     // 这样就可以用最后一个 patch 的节点作为 anchor
     for (let i = toBePatched - 1; i >= 0; i--) {
       const nextIndex = s2 + i;
-      const nextChild = newChild[nextIndex];
-      const curAnchor =
-        nextIndex + 1 < newChild.length ? newChild[nextIndex + 1].el : anchor;
+      const nextChild = c2[nextIndex];
 
       // 优先挂载新节点
       if (newIndexToOldIndexMap[i] === -1) {
-        patch(null, nextChild, container, curAnchor);
+        patch(null, nextChild, container);
       }
 
       // 如果需要移动，则判断当前节点是否在 LIS 上
       else if (move) {
         if (j < 0 || i !== seq[j]) {
           nextChild.el || patch(null, nextChild, container);
-          container.insertBefore(nextChild.el, curAnchor);
+          container.appendChild(nextChild.el);
         }
 
         // 此处 j 需要手动迭代

@@ -1,34 +1,34 @@
 import { NodeTypes } from '../compiler/ast.js';
 
-export function isObject(target) {
+export const isObject = (target) => {
   return typeof target === 'object' && target !== null;
 }
 
-export function hasChanged(oldValue, value) {
+export const hasChanged = (oldValue, value) => {
   return oldValue !== value && !(Number.isNaN(oldValue) && Number.isNaN(value));
 }
 
-export function isArray(target) {
+export const isArray = (target) => {
   return Array.isArray(target);
 }
 
-export function isFunction(target) {
+export const isFunction = (target)=> {
   return typeof target === 'function';
 }
 
-export function isString(target) {
+export const isString = (target)=> {
   return typeof target === 'string';
 }
 
-export function isNumber(target) {
+export const isNumber = (target)=> {
   return typeof target === 'number';
 }
 
-export function isBoolean(target) {
+export const isBoolean = (target)=> {
   return typeof target === 'boolean';
 }
 
-export function isSymbol(val) {
+export const isSymbol = (val) => {
   return typeof val === 'symbol';
 }
 
@@ -62,3 +62,14 @@ const makeMap = (str) => {
 export const isHTMLTag = makeMap(HTML_TAGS);
 
 export const isVoidTag = makeMap(VOID_TAGS);
+
+
+export const capitalize = (str) => {
+  return str[0].toUpperCase() + str.slice(1);
+}
+
+export const extend = Object.assign;
+
+export const isStaticExp = (p) => {
+  p.type === NodeTypes.SIMPLE_EXPRESSION && p.isStatic;
+}
