@@ -1,5 +1,11 @@
+import { SHAPEFLAG } from '../shared';
+import { isArray, isNumber, isObject, isString } from '../utils';
+
+export const Text = Symbol('Text');
+export const Fragment = Symbol('Fragment');
+
 // 创建 vnode
-const h = (type, props, children) => {
+export const h = (type, props, children) => {
     // 标记
     let shapeFlag = 0;
 
@@ -30,3 +36,14 @@ const h = (type, props, children) => {
         key: props && props.key
     };
 };
+// 处理不同的返回值形式
+export const normalizeVNode = (result) => {
+  if (isArray(result)) {
+    return h(Fragment, null, result);
+  }
+  if (isObject(result)) {
+    return result;
+  }
+  // string, number
+  return h(Text, null, result.toString());
+}

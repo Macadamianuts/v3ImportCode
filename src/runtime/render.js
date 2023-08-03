@@ -1,4 +1,4 @@
-import { ShapeFlags } from '../shared';
+import { SHAPEFLAG } from '../shared';
 import { patchProps } from './patchProps';
 import { mountComponent } from './component';
 
@@ -19,9 +19,9 @@ export const render = (vnode, container) => {
 const unmount = (vnode) => {
   const { shapeFlag, el } = vnode;
 
-  if (shapeFlag & ShapeFlags.COMPONENT) {
+  if (shapeFlag & SHAPEFLAG.COMPONENT) {
     unmountComponent(vnode);
-  } else if (shapeFlag & ShapeFlags.FRAGMENT) {
+  } else if (shapeFlag & SHAPEFLAG.FRAGMENT) {
     unmountFragment(vnode);
   } else {
     el.parentNode.removeChild(el);
@@ -37,11 +37,11 @@ export const patch = (oldNode, newNode, container, anchor) => {
 
   const { shapeFlag } = newNode;
 
-  if (shapeFlag & ShapeFlags.COMPONENT) {
+  if (shapeFlag & SHAPEFLAG.COMPONENT) {
     processComponent(oldNode, newNode, container, anchor);
-  } else if (shapeFlag & ShapeFlags.TEXT) {
+  } else if (shapeFlag & SHAPEFLAG.TEXT) {
     processText(oldNode, newNode, container, anchor);
-  } else if (shapeFlag & ShapeFlags.FRAGMENT) {
+  } else if (shapeFlag & SHAPEFLAG.FRAGMENT) {
     processFragment(oldNode, newNode, container, anchor);
   } else {
     processElement(oldNode, newNode, container, anchor);
@@ -139,9 +139,9 @@ const mountElement = (vnode, container, anchor) => {
 
   const el = document.createElement(type);
   patchProps(null, props, el);
-  if (shapeFlag & ShapeFlags.TEXT_CHILDREN) {
+  if (shapeFlag & SHAPEFLAG.TEXT_CHILDREN) {
     mountTextNode(vnode, el);
-  } else if (shapeFlag & ShapeFlags.ARRAY_CHILDREN) {
+  } else if (shapeFlag & SHAPEFLAG.ARRAY_CHILDREN) {
     mountChildren(children, el, anchor);
   }
 
@@ -168,20 +168,20 @@ const patchChildren = (oldNode, newNode, container, anchor) => {
 
   // 9 种情况
   // 未进行合并
-  if (prevShapeFlag & ShapeFlags.TEXT_CHILDREN) {
-    if (nextShapeFlag & ShapeFlags.TEXT_CHILDREN) {
+  if (prevShapeFlag & SHAPEFLAG.TEXT_CHILDREN) {
+    if (nextShapeFlag & SHAPEFLAG.TEXT_CHILDREN) {
       container.textContent = newChild;
-    } else if (nextShapeFlag & ShapeFlags.ARRAY_CHILDREN) {
+    } else if (nextShapeFlag & SHAPEFLAG.ARRAY_CHILDREN) {
       container.textContent = '';
       mountChildren(newChild, container, anchor);
     } else {
       container.textContent = '';
     }
-  } else if (prevShapeFlag & ShapeFlags.ARRAY_CHILDREN) {
-    if (nextShapeFlag & ShapeFlags.TEXT_CHILDREN) {
+  } else if (prevShapeFlag & SHAPEFLAG.ARRAY_CHILDREN) {
+    if (nextShapeFlag & SHAPEFLAG.TEXT_CHILDREN) {
       unmountChildren(oldChild);
       container.textContent = newChild;
-    } else if (nextShapeFlag & ShapeFlags.ARRAY_CHILDREN) {
+    } else if (nextShapeFlag & SHAPEFLAG.ARRAY_CHILDREN) {
       if (oldChild[0] && oldChild[0].key != null && newChild[0] && newChild[0].key != null) {
         patchKeyedChildren(oldChild, newChild, container, anchor);
       } else {
@@ -191,9 +191,9 @@ const patchChildren = (oldNode, newNode, container, anchor) => {
       unmountChildren(oldChild);
     }
   } else {
-    if (nextShapeFlag & ShapeFlags.TEXT_CHILDREN) {
+    if (nextShapeFlag & SHAPEFLAG.TEXT_CHILDREN) {
       container.textContent = newChild;
-    } else if (nextShapeFlag & ShapeFlags.ARRAY_CHILDREN) {
+    } else if (nextShapeFlag & SHAPEFLAG.ARRAY_CHILDREN) {
       mountChildren(newChild, container, anchor);
     }
   }

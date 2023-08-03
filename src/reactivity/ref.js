@@ -16,3 +16,18 @@ class RefImpl {
         trigger(this, "value")
     }
 }
+
+// 代理 ref
+// 自动解构 ref
+// 比如在 template 里使用 ref 就不需要加 .value
+export function proxyRefs(objectWithRefs) {
+  return new Proxy(objectWithRefs, shallowUnwrapHandlers);
+}
+
+export function isRef(value) {
+  return !!(value && value.__isRef);
+}
+
+export function unRef(ref) {
+  return isRef(ref) ? ref.value : ref;
+}

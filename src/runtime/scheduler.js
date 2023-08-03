@@ -1,4 +1,3 @@
-
 // 调度定义
 let queue = []
 let isFlushPending = false // 是否有微任务执行
@@ -6,7 +5,7 @@ let currentFlushPromise = null // 正在执行的微任务
 let resolvePromise = Promise.resolve() // 调用微任务
 
 // quenueJob
-const queueJob = job => {
+export const queueJob = job => {
     // 入队 去重
     if (!queue.includes(job)) {
         queue.push(job)

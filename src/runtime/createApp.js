@@ -3,7 +3,7 @@ import { render } from './render';
 import { isString } from '../utils';
 
 // createApp  
-const createApp = rootComponents => {
+export const createApp = rootComponents => {
     const app = {
         mount(rootContainer) {
             if (isString(rootContainer)) {
